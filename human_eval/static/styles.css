@@ -13,12 +13,15 @@ xmp {
     background-color: aliceblue;
     min-height: 100vh;
 }
+.row  {
+    --bs-gutter-x:0;
+}
 #history-message-region {
     padding: 20px;
     border-radius: 5px;
-    margin: 10px 10px 10px 0;
+    margin: 10px 10px 10px 0px;
     background: oldlace;
-    height: 25vh;
+    /* height: 25vh; */
     min-height: 150px;
     overflow: auto;
     resize: vertical;
@@ -58,6 +61,18 @@ xmp {
     word-wrap: break-word;
     white-space: pre-wrap;
 }
+.img-completion {
+    display: block;
+    max-width: 100%;
+    width:100%;
+    height: auto;
+}
+.role-image {
+    display: block;
+    max-width: 100%;
+    width:100%;
+    height: auto;
+}
 /* .history-message-col {
     border: #ddd solid 2px;
 } */
@@ -82,3 +97,35 @@ xmp {
 .eval-form-item {
     margin-bottom: 20px;
 }
+.content-main {
+    box-sizing: border-box;
+    padding:0 0 0 10px;
+}
+.text-html {
+    margin:0 0 0 10px;
+}
+.col-flex {
+    display: flex;
+}
+#modalClose {
+    width:30px;
+    height: 30px;
+    line-height: 30px;
+    cursor: pointer;
+}
+[class*="Image"], [class*="Audio"], [class*="Video"] {
+    color: #065cdd;
+    cursor: pointer;
+}
+[class*="Image"]:hover, [class*="Audio"]:hover, [class*="Video"]:hover {
+    color: #5c97f0;
+    cursor: pointer;
+}
+[class*="Image"]:last-child, [class*="Audio"]:last-child, [class*="Video"]:last-child {
+    margin: 0;
+}
+[class*="Image"] p, [class*="Audio"] p, [class*="Video"] p {
+    margin: 0;
+}
+
+

@@ -5,7 +5,7 @@ import argparse
 import time
 import os
 from collections import Counter
-from flask import Flask, render_template, redirect, url_for, request, jsonify
+from flask import Flask, render_template, redirect, url_for, request, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -54,6 +54,9 @@ class EvaluationRecord(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+@app.route('/data/<path:filename>')
+def data_file(filename):
+    return send_from_directory('data', filename)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -107,11 +110,12 @@ def instances(index):
 
 @app.route("/api/model-outputs/<int:index>", methods=["GET"])
 def get_model_outputs(index):
+    # send data to front end
     if 0 <= index < len(COMPARISON_INSTANCES):
-        prompt = COMPARISON_INSTANCES[index]["prompt"]
+        history = COMPARISON_INSTANCES[index]["history"]
         completions = COMPARISON_INSTANCES[index]["completions"]
-        random.shuffle(completions)
-        return jsonify({"prompt": prompt, "completions": completions}), 200
+        random.shuffle(completions)  # This will make options become random
+        return jsonify({"history": history, "completions": completions}), 200
     return jsonify({"error": "Index out of range"}), 200
 
 
@@ -405,7 +409,6 @@ def main():
     global COMPARISON_INSTANCES
     with open(args.comparison_data_path, "r") as f:
         COMPARISON_INSTANCES = [json.loads(line.strip()) for line in f.readlines()]
-
     print("Total number of comparison instances: {}".format(len(COMPARISON_INSTANCES)))
 
     # run the app and listen on port 5000
