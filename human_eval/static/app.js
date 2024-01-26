@@ -38,16 +38,16 @@ async function rendere_instance(index) {
     // Save history messages to element `history_message_region`
     history_message_region.attr("history-messages", JSON.stringify(messages));
 
-    let comp_a_element_list = resolveHhtml(completion_a.completion); 
+    let comp_a_element_list = resolveMedia(completion_a.completion); 
     let completion_a_str = generateMediaString(comp_a_element_list, 'compA');  // generate compAImage, compAAudio, compAVideo
 
-    let comp_b_element_list = resolveHhtml(completion_b.completion); 
+    let comp_b_element_list = resolveMedia(completion_b.completion); 
     let completion_b_str = generateMediaString(comp_b_element_list, 'compB');  // generate compBImage, compBAudio, compBVideo
     
 
     $.each(messages, function(i, message) {
         // console.log(message)
-        let prompt_element_list = resolveHhtml(message.message); 
+        let prompt_element_list = resolveMedia(message.message); 
         // console.log("prompt_element_list content:")
         // console.log(prompt_element_list)
         // Generate historyImage0/1/2/3... , historyAudio0/1/2/3... , historyVideo0/1/2/3...
@@ -192,7 +192,7 @@ function handleElementClick(elementType, elementList) {
 }
 
 
-function resolveHhtml(htmlStr) {
+function resolveMedia(htmlStr) {
     // console.log(htmlStr);
     let htmlData = [];
     const newHtmlData = htmlStr.match(/<([a-z][a-z0-9]*)\b[^>]*>([\s\S]*?)<\/[\s]*\1[^>]*>/g); 
