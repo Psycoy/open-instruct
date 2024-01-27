@@ -36,16 +36,12 @@ class EvaluationRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     instance_index = db.Column(db.Integer)
     instance_id = db.Column(db.String(200))
-    prompt = db.Column(db.String(1e4))
-    model_a = db.Column(db.String(200))
-    model_b = db.Column(db.String(200))
-    completion_a = db.Column(db.String(1e4))
-    completion_b = db.Column(db.String(1e4))
-    completion_a_is_acceptable = db.Column(db.String(50))
-    completion_b_is_acceptable = db.Column(db.String(50))
-    preference = db.Column(db.String(50))
-    instance_quality = db.Column(db.String(50))
-    comment = db.Column(db.String(1e4))
+    prompt = db.Column(db.String(1e4))  # conversation history, string of a list of Dict (e.g. {"role": "user", "text": "Hello"})
+    ground_truth = db.Column(db.String(1e4))
+    inst_is_acceptable = db.Column(db.String(50))
+    inst_no_reason = db.Column(db.String(1e4))
+    label_is_acceptable = db.Column(db.String(50))
+    label_no_reason = db.Column(db.String(1e4))
     evaluator = db.Column(db.String(100))
     timestamp = db.Column(db.String(100))
 
@@ -112,9 +108,10 @@ def instances(index):
 def get_model_outputs(index):
     # send data to front end
     if 0 <= index < len(COMPARISON_INSTANCES):
+        print('COMPARISON_INSTANCES[index]')
+        print(COMPARISON_INSTANCES[index])
         history = COMPARISON_INSTANCES[index]["history"]
         completions = COMPARISON_INSTANCES[index]["completions"]
-        random.shuffle(completions)  # This will make options become random
         return jsonify({"history": history, "completions": completions}), 200
     return jsonify({"error": "Index out of range"}), 200
 
@@ -124,8 +121,6 @@ def get_model_outputs(index):
 def summary():
     results = summarize_results()
     return jsonify(results), 200
-
-
 
 
 def count_user_contributions(users, records):
@@ -152,7 +147,6 @@ def get_progress(records):
 
 
 def get_acceptance_results(records, target_model_a, target_model_b):
-    # records: all evaluation records between model_a and model_b
     acceptance_results = {
         target_model_a: {},
         target_model_b: {},
@@ -161,12 +155,10 @@ def get_acceptance_results(records, target_model_a, target_model_b):
         instance_id = record.instance_id
         if instance_id not in acceptance_results[record.model_a]:
             acceptance_results[record.model_a][instance_id] = []
-        # record.completion_a_is_acceptable: yes/no
         acceptance_results[record.model_a][instance_id].append(record.completion_a_is_acceptable)
         
         if instance_id not in acceptance_results[record.model_b]:
             acceptance_results[record.model_b][instance_id] = []
-        # record.completion_b_is_acceptable: yes/no
         acceptance_results[record.model_b][instance_id].append(record.completion_b_is_acceptable)
 
     # count how many instances get multiple annotations
@@ -181,9 +173,7 @@ def get_acceptance_results(records, target_model_a, target_model_b):
     if len(instances_with_multiple_annotations) > 0:
         agreed_model_a_acceptance = 0
         agreed_model_b_acceptance = 0
-        # Appendix G: We assign **two** annotators for each of these examples and compute their agreement for both the acceptance evaluation and pairwise comparison evaluation.
-        # That is reason for '-2', '2' here.
-        for instance_id in instances_with_multiple_annotations:  
+        for instance_id in instances_with_multiple_annotations:
             if len(set(acceptance_results[target_model_a][instance_id][-2:])) == 1:
                 agreed_model_a_acceptance += 1
             if len(set(acceptance_results[target_model_b][instance_id][-2:])) == 1:
@@ -193,7 +183,6 @@ def get_acceptance_results(records, target_model_a, target_model_b):
         agreement_results[f"{target_model_a}_acceptance_agreement"] = agreed_model_a_acceptance / len(instances_with_multiple_annotations)
         agreement_results[f"{target_model_b}_acceptance_agreement"] = agreed_model_b_acceptance / len(instances_with_multiple_annotations)
 
-    # This is not rigor, if for a certain instance, x = ['yes', 'yes', 'no'], it will treat this instance result as 'no', but most annotator give the 'yes' result.
     return {
         f"{target_model_a}": sum([1 if x[-1]=="yes" else 0 for _, x in acceptance_results[target_model_a].items()]) / len(acceptance_results[target_model_a]),
         f"{target_model_b}": sum([1 if x[-1]=="yes" else 0 for _, x in acceptance_results[target_model_b].items()]) / len(acceptance_results[target_model_b]),
@@ -225,13 +214,12 @@ def get_comparison_results(records, target_model_a, target_model_b):
             print("Unknown preference value.")
             print(record)
 
-    # there can be multiple annotations for each instance; use the latest comparison result for each instance
+    # thre can be multiple annotations for each instance; use the latest comparison result for each instance
     latest_comparison_results = [results[-1] for _, results in comparison_results.items()]
     model_wins_counter = Counter(latest_comparison_results)
     model_wins_rates = {
         result: count / len(latest_comparison_results) for result, count in model_wins_counter.items()
     }
-    # for example, model_wins_rates: {'model_a is clearly better': 0.1, 'tie': 0.05, 'model_b is clearly better': 0.3, ...}
     # merge the clearly better and slightly better results
     model_wins_rates[f"{target_model_a}_wins"] = \
         sum([v for k, v in model_wins_rates.items() if target_model_a in k])
@@ -277,47 +265,13 @@ def summarize_results():
     results = {}
     users = User.query.all()
     records = EvaluationRecord.query.all()
-
+    print('records:\n', records)
     # get the number of completed instances for all and each user
     results["user_contributions"] = count_user_contributions(users, records)
 
     # get the missing instances
     results["progress"] = get_progress(records)
     
-    # get the comparison model pairs
-    model_pairs = set([tuple(sorted([record.model_a, record.model_b])) for record in records])
-    results["model_pairs"] = list(model_pairs)
-    
-    results["results"] = {}
-    for target_model_a, target_model_b in model_pairs:  # For each combination of target models
-        feedback_records = {}
-        comparison_records = []
-        for record in records:
-            # instance id is used to identify the comparison instance
-            # there could be multiple records for the same instance. For example, records from different users, of different record types (feedback/evaluation)
-            instance_id = record.instance_id
-
-            # skip if the record is not for the target model pair
-            if set([target_model_a, target_model_b]) != set([record.model_a, record.model_b]):
-                assert any([set([record.model_a, record.model_b]) == set(pair) for pair in model_pairs])
-                continue
-            
-            # skip if the record is a feedback
-            if record.instance_quality:  # good, bad, hard
-                if record.instance_quality not in feedback_records:
-                    feedback_records[record.instance_quality] = []
-                feedback_records[record.instance_quality].append(record.instance_index)
-                continue
-
-            comparison_records.append(record)
-        # comparison_records: comparison records between model_a and model_b
-        acceptance_results = get_acceptance_results(comparison_records, target_model_a, target_model_b)
-        comparison_results = get_comparison_results(comparison_records, target_model_a, target_model_b)
-        results["results"][f"{target_model_a}_vs_{target_model_b}"] = {
-            "acceptance_results": acceptance_results,
-            "comparison_results": comparison_results,
-            "feedback_records": feedback_records,
-        }        
     return results
     
 
@@ -332,44 +286,12 @@ def submit_evaluation():
         instance_index=evaluation_data["index"],
         instance_id=COMPARISON_INSTANCES[evaluation_data["index"]]["id"],
         prompt=evaluation_data["prompt"],
-        model_a=evaluation_data["model_a"],
-        model_b=evaluation_data["model_b"],
-        completion_a=evaluation_data["completion_a"],
-        completion_b=evaluation_data["completion_b"],
-        completion_a_is_acceptable=evaluation_data["completion_a_is_acceptable"],
-        completion_b_is_acceptable=evaluation_data["completion_b_is_acceptable"],
-        preference=evaluation_data["preference"],
-        instance_quality="",
-        comment="",
+        ground_truth=evaluation_data["ground_truth"],  # ground truth
+        inst_is_acceptable=evaluation_data["inst_is_acceptable"],
+        inst_no_reason=evaluation_data["inst_no_reason"],
+        label_is_acceptable=evaluation_data["label_is_acceptable"],
+        label_no_reason=evaluation_data["label_no_reason"],
         evaluator=evaluation_data["evaluator"],
-        timestamp=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-    )
-    db.session.add(new_record)
-    db.session.commit()
-    return jsonify({"message": "Evaluation data submitted successfully"}), 200
-
-
-@app.route("/api/submit-feedback", methods=["POST"])
-@login_required
-def submit_feedback():
-    feedback_data = request.get_json()
-    print("Got new feedback:")
-    print(feedback_data)
-    # write to the database
-    new_record = EvaluationRecord(
-        instance_index=feedback_data["index"],
-        instance_id=COMPARISON_INSTANCES[feedback_data["index"]]["id"],
-        prompt=feedback_data["prompt"],
-        model_a=feedback_data["model_a"],
-        model_b=feedback_data["model_b"],
-        completion_a=feedback_data["completion_a"],
-        completion_b=feedback_data["completion_b"],
-        completion_a_is_acceptable="",
-        completion_b_is_acceptable="",
-        preference="",
-        instance_quality=feedback_data["instance_quality"],
-        comment=feedback_data["comment"],
-        evaluator=feedback_data["evaluator"],
         timestamp=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
     )
     db.session.add(new_record)
@@ -417,7 +339,7 @@ def main():
     with open(args.comparison_data_path, "r") as f:
         COMPARISON_INSTANCES = [json.loads(line.strip()) for line in f.readlines()]
     print("Total number of comparison instances: {}".format(len(COMPARISON_INSTANCES)))
-
+    print(COMPARISON_INSTANCES)
     # run the app and listen on port 5000
     app.run(host=args.host, port=args.port, debug=args.debug)
 

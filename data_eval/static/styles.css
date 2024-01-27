@@ -1,0 +1,127 @@
+body {
+    font-family: Arial, Helvetica, sans-serif;
+}
+html {
+    overflow-y:scroll;
+}
+xmp {
+    font-family: Arial, Helvetica, sans-serif;
+}
+#nav {
+    padding: 50px;
+    border-radius: 5px;
+    background-color: aliceblue;
+    min-height: 100vh;
+}
+/* .row  {
+    --bs-gutter-x:0;
+} */
+.row, .col-6 {
+    --bs-gutter-x:0;
+    width: 100%;
+}
+
+#history-message-region {
+    padding: 20px;
+    border-radius: 5px;
+    margin: 10px 10px 10px 0px;
+    background: oldlace;
+    /* height: 25vh; */
+    min-height: 150px;
+    overflow: auto;
+    resize: vertical;
+}
+#model-outputs-region {
+    padding: 20px;
+    border-radius: 5px;
+    margin: 10px 10px 10px 0;
+    background: #cecefa;
+}
+#evaluation-region {
+    padding: 20px;
+    border-radius: 5px;
+    margin: 10px 10px 10px 0;
+    background: lavenderblush;
+}
+.message {
+    margin-bottom: 20px;
+}
+.icon-col {
+    max-width: 70px;
+}
+.role-icon {
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+    border: 1px solid #ddd;
+    background-color: white;
+}
+.message-col {
+    padding-top: 10px;
+}
+.message-text {
+    font-size: 18px;
+    margin: 0;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+.img-completion {
+    display: block;
+    max-width: 100%;
+    width:100%;
+    height: auto;
+}
+.role-image {
+    display: block;
+    max-width: 100%;
+    width:100%;
+    height: auto;
+}
+/* .history-message-col {
+    border: #ddd solid 2px;
+} */
+.completion-col {
+    padding: 10px;
+    margin: 15px;
+    background-color: white;
+    height: 50vh;
+    overflow: auto;
+    min-height: 200px;
+    resize: horizontal;
+}
+.eval-form-item {
+    margin-bottom: 20px;
+}
+.content-main {
+    box-sizing: border-box;
+    padding:0 0 0 10px;
+}
+.text-html {
+    margin:0 0 0 10px;
+}
+.col-flex {
+    display: flex;
+}
+#modalClose {
+    width:30px;
+    height: 30px;
+    line-height: 30px;
+    cursor: pointer;
+}
+[class*="Image"], [class*="Audio"], [class*="Video"] {
+    color: #065cdd;
+    cursor: pointer;
+}
+[class*="Image"]:hover, [class*="Audio"]:hover, [class*="Video"]:hover {
+    color: #5c97f0;
+    cursor: pointer;
+}
+[class*="Image"]:last-child, [class*="Audio"]:last-child, [class*="Video"]:last-child {
+    margin: 0;
+}
+[class*="Image"] p, [class*="Audio"] p, [class*="Video"] p {
+    margin: 0;
+}
+
+
