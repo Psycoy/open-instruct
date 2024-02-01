@@ -108,8 +108,6 @@ def instances(index):
 def get_model_outputs(index):
     # send data to front end
     if 0 <= index < len(COMPARISON_INSTANCES):
-        print('COMPARISON_INSTANCES[index]')
-        print(COMPARISON_INSTANCES[index])
         history = COMPARISON_INSTANCES[index]["history"]
         completions = COMPARISON_INSTANCES[index]["completions"]
         return jsonify({"history": history, "completions": completions}), 200
@@ -339,7 +337,7 @@ def main():
     with open(args.comparison_data_path, "r") as f:
         COMPARISON_INSTANCES = [json.loads(line.strip()) for line in f.readlines()]
     print("Total number of comparison instances: {}".format(len(COMPARISON_INSTANCES)))
-    print(COMPARISON_INSTANCES)
+    # print(COMPARISON_INSTANCES)
     # run the app and listen on port 5000
     app.run(host=args.host, port=args.port, debug=args.debug)
 
