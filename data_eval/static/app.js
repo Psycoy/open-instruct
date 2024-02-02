@@ -8,10 +8,9 @@ async function rendere_instance(index) {
     const response = await fetch(`/api/model-outputs/${index}`);
     const data = await response.json(); 
     // data.history: [{"role": "user/assistant ...", }, ...]
-    // data.completions: [{"model": "model_name_1", "completion": "completion_from_model_1"},
-    //                    {"model": "model_name_2", "completion": "completion_from_model_2"}]
-    // console.log("Data received:")
-    // console.log(data)
+    // data.completions: "ground truth completion"
+    console.log("Data received:")
+    console.log(data)
 
     // if the response is error, show the out of range message
     if (data.error == "Index out of range") {
@@ -31,19 +30,14 @@ async function rendere_instance(index) {
     var history_message_region = $("#history-message-region");
     history_message_region.empty();
 
-    completion_a = data.completions[0];
-    completion_b = data.completions[1];
+    completion_a = data.completions;
     // console.log(data.completions)
 
     // Save history messages to element `history_message_region`
     history_message_region.attr("history-messages", JSON.stringify(messages));
 
-    let comp_a_element_list = resolveMedia(completion_a.completion); 
+    let comp_a_element_list = resolveMedia(completion_a); 
     let completion_a_str = generateMediaString(comp_a_element_list, 'compA');  // generate compAImage, compAAudio, compAVideo
-
-    let comp_b_element_list = resolveMedia(completion_b.completion); 
-    let completion_b_str = generateMediaString(comp_b_element_list, 'compB');  // generate compBImage, compBAudio, compBVideo
-    
 
     $.each(messages, function(i, message) {
         // console.log(message)
@@ -76,32 +70,20 @@ async function rendere_instance(index) {
         
     });
     // Store completion string to the element
-    $("#completion-A-col").attr("data-completion", completion_a.completion);
-    $("#completion-B-col").attr("data-completion", completion_b.completion);
+    $("#completion-A-col").attr("data-completion", completion_a);
 
     $("#completion-A-col").html(`
-    <div id="${completion_a.model}-completion">  
+    <div id="ground-truth-completion">  
         ${completion_a_str}
     </div>
     `);
     // console.log("The structure of completion-A: ")
     // console.log($("#completion-A-col"))
-    $("#completion-B-col").html(`
-        <div id="${completion_b.model}-completion">
-            ${completion_b_str}
-        </div>
-    `);
-    // console.log("The structure of completion-B:")
-    // console.log($("#completion-B-col"))
+
     // Link media to elements(compAImage, compAAudio, compAVideo)
     handleElementClick('compAImage', comp_a_element_list);
     handleElementClick('compAAudio', comp_a_element_list);
     handleElementClick('compAVideo', comp_a_element_list);
-    // Link media to elements(compBImage, compBAudio, compBVideo)
-    handleElementClick('compBImage', comp_b_element_list);
-    handleElementClick('compBAudio', comp_b_element_list);
-    handleElementClick('compBVideo', comp_b_element_list);
-
     
 
     $('#myModal').on('hidden.bs.modal', function (e) {
@@ -123,7 +105,6 @@ function generateMediaString(mediaArray, identifierPrefix, element_index = '') {
 
     $.each(mediaArray, (index, item) => {
         if (item.type === 'Text') {
-            // mediaStr += `<span>${item.content}</span>`;  # span cannot handle things like "\n"
             mediaStr += `<xmp class="message-text"">${item.content}</xmp>`;
         }
 
@@ -197,7 +178,7 @@ function resolveMedia(htmlStr) {
     let htmlData = [];
     const newHtmlData = htmlStr.match(/<([a-z][a-z0-9]*)\b[^>]*>([\s\S]*?)<\/[\s]*\1[^>]*>/g); 
     // console.log(newHtmlData);
-    newHtmlData.map((item,index) => {
+    newHtmlData.map((item, index) => {
         if(item.indexOf('<text>') !== -1) {
             htmlData.push({
                 content:item?.replace(/<text>/,'')?.replace(/<\/text>/,''),
@@ -264,30 +245,36 @@ function show_alert(message, type, insert_after_selector, timeout=5000) {
 
 async function submit_evaluation() {
     try {
-        // get the model name by trimming out the last `-completion` part  // e.g chatgpt-completion --> chatgpt
-        const model_a = $("#completion-A-col").find("div").attr("id").slice(0, -11);  
-        const model_b = $("#completion-B-col").find("div").attr("id").slice(0, -11);
-        const completion_a_is_acceptable = $("input[name='a-is-acceptable']:checked").val();
-        const completion_b_is_acceptable = $("input[name='b-is-acceptable']:checked").val();
-        const preference = $("input[name='preference-selection']:checked").val();
+        const inst_is_acceptable = $("input[name='inst-is-acceptable']:checked").val();
+        const inst_no_reason = $("textarea[name='inst_no_reason']").val();
+
+        const label_is_acceptable = $("input[name='label-is-acceptable']:checked").val();
+        const label_no_reason = $("textarea[name='label_no_reason']").val();
         
         // get the prompt and completions
         const prompt = $("#history-message-region").attr("history-messages");
-        const completion_a = $("#completion-A-col").attr("data-completion");
-        const completion_b = $("#completion-B-col").attr("data-completion");
+        const ground_truth = $("#completion-A-col").attr("data-completion");
 
         let allmediaClicked = $('[class*="Image"], [class*="Audio"], [class*="Video"]').get().every(function(element) {
             return $(element).data('clicked');
         });
+        // make sure some fields are filled
+        if (inst_is_acceptable == "no" && inst_no_reason == "") {
+            show_alert("Please ensure that the reason for choosing 'No' in Q1 is entered.", "danger", insert_after_selector="#evaluation-submit", timeout=5000);
+            return;
+        }
+        if (label_is_acceptable == "no" && label_no_reason == "") {
+            show_alert("Please ensure that the reason for choosing 'No' in Q2 is entered.", "danger", insert_after_selector="#evaluation-submit", timeout=5000);
+            return;
+        }
         // console.log('allmediaClicked')
         // console.log(allmediaClicked)
         if (!allmediaClicked) {
             show_alert("Please interact with all media elements (images, audios, and videos) before submitting.", "danger", insert_after_selector="#evaluation-submit", timeout=5000);
             return;
         }
-
         // make sure all the required fields are filled
-        if (completion_a_is_acceptable == undefined || completion_b_is_acceptable == undefined || preference == undefined) {
+        if (inst_is_acceptable == undefined || label_is_acceptable == undefined) {
             show_alert("Please fill in all the questions.", "danger", insert_after_selector="#evaluation-submit", timeout=5000);
             return;
         }
@@ -298,14 +285,12 @@ async function submit_evaluation() {
             },
             body: JSON.stringify({
                 index: current_index,
-                model_a,
-                model_b,
                 prompt,
-                completion_a,
-                completion_b,
-                completion_a_is_acceptable,
-                completion_b_is_acceptable,
-                preference,
+                ground_truth,
+                inst_is_acceptable,
+                inst_no_reason,
+                label_is_acceptable,
+                label_no_reason,
                 evaluator: username 
             }),
         });
@@ -335,75 +320,6 @@ $("#evaluation-submit").click(function () {
     // prevent default form submission
     event.preventDefault();
     submit_evaluation();
-});
-
-
-async function submit_feedback() {
-    try {
-        // get the model name by trimming out the last `-completion` part
-        const model_a = $("#completion-A-col").find("div").attr("id").slice(0, -11);
-        const model_b = $("#completion-B-col").find("div").attr("id").slice(0, -11);
-
-        // get the prompt(string of a list of conversations) and completions
-        const prompt = $("#history-message-region").attr("history-messages");
-        const completion_a = $("#completion-A-col").attr("data-completion");
-        const completion_b = $("#completion-B-col").attr("data-completion");
-
-        // feedback
-        const instance_quality = $("input[name='instance-quality']:checked").val();
-        const comment = $("textarea[name='comment']").val();
-
-        // console.log("instance_quality:", instance_quality);
-        // console.log("comment:", comment);
-
-        
-
-        // make sure some fields are filled
-        if (instance_quality == undefined && comment == "") {
-            show_alert("No feedback is provided.", "danger", insert_after_selector="#feedback-submit", timeout=5000);
-            return;
-        }
-        const response = await fetch("/api/submit-feedback", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                index: current_index,
-                model_a,
-                model_b,
-                prompt,
-                completion_a,
-                completion_b,
-                instance_quality,
-                comment,
-                evaluator: username 
-            }),
-        });
-        
-        // if the response is 200, show the success message
-        if (response.status == 200) {
-            show_alert("Feedback is submitted successfully.", "success", insert_after_selector="#feedback-submit", timeoutput=5000);
-            console.log("Feedback is submitted successfully.");
-        }
-        else if (response.status == 401) {
-            show_alert("You need to log in to submit feedback.", "danger", insert_after_selector="#feedback-submit", timeoutput=5000);
-        }
-        else {
-            console.log(response);
-            show_alert("Error when submitting feedback data. Please try again.", "danger", insert_after_selector="#feedback-submit", timeoutput=5000);
-            console.error("Error when submitting feedback data:", response.status);
-        }
-    } catch (error) {
-        show_alert("Error when submitting feedback data. Please try again.", "danger", insert_after_selector="#feedback-submit", timeoutput=5000);
-        console.error("Error when submitting evaluation data:", error);
-    }
-}
-
-$("#feedback-submit").click(function () {
-    // prevent default form submission
-    event.preventDefault();
-    submit_feedback();
 });
 
 // Add event listeners for the navigation buttons

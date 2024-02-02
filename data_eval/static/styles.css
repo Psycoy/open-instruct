@@ -13,9 +13,14 @@ xmp {
     background-color: aliceblue;
     min-height: 100vh;
 }
-.row  {
+/* .row  {
     --bs-gutter-x:0;
+} */
+.row, .col-6 {
+    --bs-gutter-x:0;
+    width: 100%;
 }
+
 #history-message-region {
     padding: 20px;
     border-radius: 5px;
@@ -76,15 +81,6 @@ xmp {
 /* .history-message-col {
     border: #ddd solid 2px;
 } */
-.completion-icon {
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    font-size: 15px;
-    border: 1px solid #ddd;
-    background-color: #3e4cf1;
-    color: white;
-}
 .completion-col {
     padding: 10px;
     margin: 15px;
@@ -92,7 +88,7 @@ xmp {
     height: 50vh;
     overflow: auto;
     min-height: 200px;
-    resize: vertical;
+    resize: horizontal;
 }
 .eval-form-item {
     margin-bottom: 20px;
